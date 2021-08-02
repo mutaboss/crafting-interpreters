@@ -1,8 +1,8 @@
-use clap::{Arg, App};
+use clap::{App, Arg};
+use std::fmt;
+use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::fs::File;
-use std::fmt;
 
 #[derive(Debug, Clone)]
 struct LoxError;
@@ -25,33 +25,35 @@ fn read_file(filename: &str) -> Vec<String> {
         }
     };
     let reader = BufReader::new(f);
-    return reader.lines().map(|l| match l {
-        Ok(line) => line,
-        Err(err) => {
-            println!("Error reading from {}: {}.", filename, err);
-            std::process::exit(3);
-        }
-    }).collect();
+    return reader
+        .lines()
+        .map(|l| match l {
+            Ok(line) => line,
+            Err(err) => {
+                println!("Error reading from {}: {}.", filename, err);
+                std::process::exit(3);
+            }
+        })
+        .collect();
 }
 
 // run_file: Run the supplied file based on filename.
 // We iterate through each line of the file and attempt to execute it.
 // TODO: collect errors from execution, so we can see if multiple errors are encountered.
 fn run_file(filename: &str) -> Option<LoxError> {
-    let line_buffer = read_file(filename);
-    for line in line_buffer {
+    for line in read_file(filename) {
         match run_line(line) {
             None => (),
-            Some(err) => return Some(err)
+            Some(err) => return Some(err),
         }
-    };
-    return None
+    }
+    return None;
 }
 
 // run_repl: Read a line, execute it, repeat.
 // TODO: Implement reading from stdin.
 fn run_repl() -> Option<LoxError> {
-    return Some(LoxError{});
+    return Some(LoxError {});
 }
 
 // run_line: Run a single line of Lox code.
@@ -66,15 +68,14 @@ fn main() {
         .version("0.1.0")
         .author("Brian King <brian@jenashcal.net>")
         .about("Implementation of Lox from Part II of Crafting Interpreters by Robert Nystrum.")
-        .arg(Arg::with_name("script")
-             .index(1))
+        .arg(Arg::with_name("script").index(1))
         .get_matches();
     let result = match matches.value_of("script") {
         None => run_repl(),
-        Some(script) => run_file(script)
+        Some(script) => run_file(script),
     };
     match result {
         None => (),
-        Some(err) => println!("ERROR: {}", err)
+        Some(err) => println!("ERROR: {}", err),
     };
 }
