@@ -59,63 +59,68 @@ fn read_file(filename: &str) -> Result<Vec<String>, LoxError> {
 // Execution
 // ------------------------------------------------------------------------------------------------
 
-// run_line: Run a single line of Lox code.
-// This is where the magic happens.
-fn run_line(buffer: &str) -> Result<(), LoxError> {
-    println!("{}", buffer);
-    return Ok(());
-}
+struct Executor;
 
-// run_file: Run the supplied file based on filename.
-// We iterate through each line of the file and attempt to execute it.
-// TODO: collect errors from execution, so we can see if multiple errors are encountered.
-fn run_file(filename: &str) -> Result<(), LoxError> {
-    match read_file(filename) {
-        Ok(lines) => {
-            for line in lines {
-                match run_line(&line) {
-                    Ok(_) => (),
-                    Err(err) => return Err(err),
+impl Executor {
+    // run_line: Run a single line of Lox code.
+    // This is where the magic happens.
+    fn run_line(&self, buffer: &str) -> Result<(), LoxError> {
+        if buffer.starts_with("print") || buffer.starts_with("var") {
+            println!("{}", buffer);
+            return Ok(());
+        } else {
+            return Err(LoxError {
+                message: format!("Bad input: {}", buffer),
+            });
+        }
+    }
+
+    // run_file: Run the supplied file based on filename.
+    // We iterate through each line of the file and attempt to execute it.
+    // TODO: collect errors from execution, so we can see if multiple errors are encountered.
+    pub fn run_file(&self, filename: &str) -> Result<(), LoxError> {
+        match read_file(filename) {
+            Ok(lines) => {
+                for line in lines {
+                    match self.run_line(&line) {
+                        Ok(_) => (),
+                        Err(err) => return Err(err),
+                    }
                 }
             }
+            Err(err) => return Err(err),
         }
-        Err(err) => return Err(err),
+        return Ok(());
     }
-    return Ok(());
-}
 
-// run_repl: Read a line, execute it, repeat.
-fn run_repl() -> Result<(), LoxError> {
-    let mut line = String::new();
-    loop {
-        display_prompt("> ");
-        line.clear();
-        match io::stdin().read_line(&mut line) {
-            Ok(n) => {
-                if n == 0 {
-                    break;
-                } else {
-                    if !line.trim().is_empty() {
-                        match run_line(&line.trim()) {
-                            Ok(()) => (),
-                            Err(err) => {
-                                // TODO: Display the error and keep going.
-                                return Err(LoxError {
-                                    message: format!("{}", err),
-                                });
+    // run_repl: Read a line, execute it, repeat.
+    pub fn run_repl(&self) -> Result<(), LoxError> {
+        let mut line = String::new();
+        loop {
+            display_prompt("> ");
+            line.clear();
+            match io::stdin().read_line(&mut line) {
+                Ok(n) => {
+                    if n == 0 {
+                        break;
+                    } else {
+                        if !line.trim().is_empty() {
+                            match self.run_line(&line.trim()) {
+                                Ok(()) => (),
+                                Err(err) => eprintln!("{}", err),
                             }
                         }
                     }
                 }
-            }
-            Err(err) => {
-                return Err(LoxError {
-                    message: format!("{}", err),
-                });
+                Err(err) => {
+                    return Err(LoxError {
+                        message: format!("{}", err),
+                    });
+                }
             }
         }
+        return Ok(());
     }
-    return Ok(());
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -124,14 +129,15 @@ fn run_repl() -> Result<(), LoxError> {
 
 fn main() {
     let matches = App::new("rlox1: Lox in Rust.")
-        .version("0.1.0")
+        .version("v0.1.0")
         .author("Brian King <brian@jenashcal.net>")
         .about("Implementation of Lox from Part II of Crafting Interpreters by Robert Nystrum.")
         .arg(Arg::with_name("script").index(1))
         .get_matches();
+    let exec = Executor {};
     let result = match matches.value_of("script") {
-        None => run_repl(),
-        Some(script) => run_file(script),
+        None => exec.run_repl(),
+        Some(script) => exec.run_file(script),
     };
     match result {
         Ok(()) => (),
