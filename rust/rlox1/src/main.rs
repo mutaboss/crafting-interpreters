@@ -6,6 +6,10 @@ use std::io::{self, BufReader};
 
 // TODO: Add documentation.
 
+// ------------------------------------------------------------------------------------------------
+// Error Handling
+// ------------------------------------------------------------------------------------------------
+
 #[derive(Debug, Clone)]
 struct LoxError {
     message: String,
@@ -15,6 +19,15 @@ impl fmt::Display for LoxError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "LoxError encountered: {}.", self.message)
     }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Utility Functions
+// ------------------------------------------------------------------------------------------------
+
+fn display_prompt(prompt: &str) {
+    print!("{}", prompt);
+    io::stdout().flush().expect("Failed to write to stdout!");
 }
 
 // read_file: Read lines from a file. Line termination is stripped.
@@ -42,6 +55,10 @@ fn read_file(filename: &str) -> Result<Vec<String>, LoxError> {
     return Ok(lines);
 }
 
+// ------------------------------------------------------------------------------------------------
+// Execution
+// ------------------------------------------------------------------------------------------------
+
 // run_line: Run a single line of Lox code.
 // This is where the magic happens.
 fn run_line(buffer: &str) -> Result<(), LoxError> {
@@ -68,12 +85,10 @@ fn run_file(filename: &str) -> Result<(), LoxError> {
 }
 
 // run_repl: Read a line, execute it, repeat.
-// TODO: Capture the program?
 fn run_repl() -> Result<(), LoxError> {
     let mut line = String::new();
     loop {
-        print!("> ");
-        io::stdout().flush().expect("Failed to write to stdout!");
+        display_prompt("> ");
         line.clear();
         match io::stdin().read_line(&mut line) {
             Ok(n) => {
@@ -84,9 +99,10 @@ fn run_repl() -> Result<(), LoxError> {
                         match run_line(&line.trim()) {
                             Ok(()) => (),
                             Err(err) => {
+                                // TODO: Display the error and keep going.
                                 return Err(LoxError {
                                     message: format!("{}", err),
-                                })
+                                });
                             }
                         }
                     }
@@ -101,6 +117,10 @@ fn run_repl() -> Result<(), LoxError> {
     }
     return Ok(());
 }
+
+// ------------------------------------------------------------------------------------------------
+// Main
+// ------------------------------------------------------------------------------------------------
 
 fn main() {
     let matches = App::new("rlox1: Lox in Rust.")
