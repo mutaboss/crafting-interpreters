@@ -2,65 +2,104 @@ use clap::{App, Arg};
 use std::fmt;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::BufReader;
+use std::io::{self, BufReader};
+
+// TODO: Add documentation.
 
 #[derive(Debug, Clone)]
-struct LoxError;
+struct LoxError {
+    message: String,
+}
 
 impl fmt::Display for LoxError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Error executing this code.")
+        write!(f, "LoxError encountered: {}.", self.message)
     }
 }
 
 // read_file: Read lines from a file. Line termination is stripped.
-// If we encounter an error, we print a message and exit.
-// It seems pointless to return an error from here if we simply cannot read the file.
-fn read_file(filename: &str) -> Vec<String> {
+fn read_file(filename: &str) -> Result<Vec<String>, LoxError> {
     let f = match File::open(filename) {
         Ok(fh) => fh,
         Err(err) => {
-            println!("Error encountered opening {}: {}.", filename, err);
-            std::process::exit(2);
+            return Err(LoxError {
+                message: format!("{}", err),
+            });
         }
     };
     let reader = BufReader::new(f);
-    return reader
-        .lines()
-        .map(|l| match l {
-            Ok(line) => line,
+    let mut lines = Vec::new();
+    for line in reader.lines() {
+        match line {
+            Ok(line) => lines.push(line),
             Err(err) => {
-                println!("Error reading from {}: {}.", filename, err);
-                std::process::exit(3);
+                return Err(LoxError {
+                    message: format!("{}", err),
+                });
             }
-        })
-        .collect();
+        }
+    }
+    return Ok(lines);
+}
+
+// run_line: Run a single line of Lox code.
+// This is where the magic happens.
+fn run_line(buffer: &str) -> Result<(), LoxError> {
+    println!("{}", buffer);
+    return Ok(());
 }
 
 // run_file: Run the supplied file based on filename.
 // We iterate through each line of the file and attempt to execute it.
 // TODO: collect errors from execution, so we can see if multiple errors are encountered.
-fn run_file(filename: &str) -> Option<LoxError> {
-    for line in read_file(filename) {
-        match run_line(line) {
-            None => (),
-            Some(err) => return Some(err),
+fn run_file(filename: &str) -> Result<(), LoxError> {
+    match read_file(filename) {
+        Ok(lines) => {
+            for line in lines {
+                match run_line(&line) {
+                    Ok(_) => (),
+                    Err(err) => return Err(err),
+                }
+            }
         }
+        Err(err) => return Err(err),
     }
-    return None;
+    return Ok(());
 }
 
 // run_repl: Read a line, execute it, repeat.
-// TODO: Implement reading from stdin.
-fn run_repl() -> Option<LoxError> {
-    return Some(LoxError {});
-}
-
-// run_line: Run a single line of Lox code.
-// This is where the magic happens.
-fn run_line(buffer: String) -> Option<LoxError> {
-    println!("{}", buffer);
-    return None;
+// TODO: Capture the program?
+fn run_repl() -> Result<(), LoxError> {
+    let mut line = String::new();
+    loop {
+        print!("> ");
+        io::stdout().flush().expect("Failed to write to stdout!");
+        line.clear();
+        match io::stdin().read_line(&mut line) {
+            Ok(n) => {
+                if n == 0 {
+                    break;
+                } else {
+                    if !line.trim().is_empty() {
+                        match run_line(&line.trim()) {
+                            Ok(()) => (),
+                            Err(err) => {
+                                return Err(LoxError {
+                                    message: format!("{}", err),
+                                })
+                            }
+                        }
+                    }
+                }
+            }
+            Err(err) => {
+                return Err(LoxError {
+                    message: format!("{}", err),
+                });
+            }
+        }
+    }
+    return Ok(());
 }
 
 fn main() {
@@ -75,7 +114,7 @@ fn main() {
         Some(script) => run_file(script),
     };
     match result {
-        None => (),
-        Some(err) => println!("ERROR: {}", err),
+        Ok(()) => (),
+        Err(err) => eprintln!("ERROR: {}", err),
     };
 }
