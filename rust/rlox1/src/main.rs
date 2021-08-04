@@ -23,8 +23,7 @@ fn main() {
         None => exec.run_repl(),
         Some(script) => exec.run_file(script),
     };
-    match result {
-        Ok(()) => (),
-        Err(err) => eprintln!("ERROR: {}", err),
+    if let Err(err) = result {
+        eprintln!("ERROR: {}", err);
     };
 }
