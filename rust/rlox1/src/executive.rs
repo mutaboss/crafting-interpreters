@@ -98,8 +98,12 @@ mod tests {
     #[test]
     fn load_non_existent_file() -> Result<(), LoxError> {
         let e = executive::new();
-        if let Err(_) = e.run_file("test/bad.file") {
-            Ok(())
+        if let Err(x) = e.run_file("test/not-a-file.file") {
+            if format!("{}", x).contains("No such file") {
+                Ok(())
+            } else {
+                Err(x)
+            }
         } else {
             Err(error::new("expected exception"))
         }
