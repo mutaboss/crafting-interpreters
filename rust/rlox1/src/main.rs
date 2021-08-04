@@ -1,7 +1,5 @@
 use clap::{App, Arg};
 
-use crate::executive::Executor;
-
 // TODO: Add documentation.
 
 mod error;
@@ -18,7 +16,7 @@ fn main() {
         .about("Implementation of Lox from Part II of Crafting Interpreters by Robert Nystrum.")
         .arg(Arg::with_name("script").index(1))
         .get_matches();
-    let exec = Executor {};
+    let exec = executive::new();
     let result = match matches.value_of("script") {
         None => exec.run_repl(),
         Some(script) => exec.run_file(script),

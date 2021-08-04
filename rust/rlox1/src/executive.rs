@@ -8,6 +8,10 @@ const MAX_SOURCE_FILE_SIZE: u64 = 65535;
 
 pub struct Executor;
 
+pub fn new() -> Executor {
+    Executor {}
+}
+
 impl Executor {
     // display_prompt: Display a prompt and flush to stdout.
     fn display_prompt(&self, prompt: &str) {
@@ -77,5 +81,70 @@ impl Executor {
             }
         }
         return Ok(());
+    }
+}
+
+use std::path::PathBuf;
+
+#[test]
+fn create_default_executor() {
+    let _ = new();
+}
+
+#[test]
+fn load_non_existent_file() -> Result<(), LoxError> {
+    let e = new();
+    if let Err(_) = e.run_file("test/bad.file") {
+        Ok(())
+    } else {
+        Err(error::new("expected exception"))
+    }
+}
+
+#[test]
+fn load_too_big_file() -> Result<(), LoxError> {
+    let e = new();
+    let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    d.push("resources/test/large.file");
+    if let Err(x) = e.run_file(&format!("{}", d.display())) {
+        if format!("{}", x).contains("is too large") {
+            Ok(())
+        } else {
+            Err(x)
+        }
+    } else {
+        Err(error::new("expected exception"))
+    }
+}
+
+#[test]
+fn load_directory() -> Result<(), LoxError> {
+    let e = new();
+    let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    d.push("resources/test");
+    if let Err(x) = e.run_file(&format!("{}", d.display())) {
+        if format!("{}", x).contains("is not a file") {
+            Ok(())
+        } else {
+            Err(x)
+        }
+    } else {
+        Err(error::new("expected error"))
+    }
+}
+
+#[test]
+fn load_file_with_bad_statement() -> Result<(), LoxError> {
+    let e = new();
+    let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    d.push("resources/test/test-bad.lox");
+    if let Err(x) = e.run_file(&format!("{}", d.display())) {
+        if format!("{}", x).contains("Bad input") {
+            Ok(())
+        } else {
+            Err(x)
+        }
+    } else {
+        Err(error::new("expected error"))
     }
 }
