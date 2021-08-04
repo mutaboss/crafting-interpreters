@@ -1,8 +1,10 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::prelude::*;
 use std::io::{self, BufReader};
 
 use crate::error::{self, LoxError};
+
+const MAX_SOURCE_FILE_SIZE: u64 = 65535;
 
 pub struct Executor;
 
@@ -15,7 +17,18 @@ impl Executor {
 
     // read_file: Read lines from a file. Line termination is stripped.
     fn read_file(&self, filename: &str) -> Result<Vec<String>, LoxError> {
-        // TODO: Check file size before opening.
+        // Confirm the file isn't too big before opening.
+        let attr = fs::metadata(filename)?;
+        if !attr.is_file() {
+            return Err(error::new(&format!("Path {} is not a file.", filename)));
+        } else if attr.len() > MAX_SOURCE_FILE_SIZE {
+            return Err(error::new(&format!(
+                "File {} is too large ({} > {}).",
+                filename,
+                attr.len(),
+                MAX_SOURCE_FILE_SIZE
+            )));
+        }
         let f = File::open(filename)?;
         let reader = BufReader::new(f);
         let mut lines = Vec::new();
