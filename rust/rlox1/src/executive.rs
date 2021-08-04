@@ -105,10 +105,20 @@ mod tests {
         };
     }
 
-    macro_rules! dp {
-        ( $p:expr ) => {
-            format!("{}", $p.display())
+    macro_rules! assert_run_file {
+        ( $fn:expr, $ct:expr ) => {
+            {
+                let e = executive::new();
+                assert_error_contains!(e.run_file(&get_resource($fn)), $ct)
+            }
         };
+    }
+
+    fn get_resource(name: &str) -> String {
+        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        d.push("resources/test/");
+        d.push(name);
+        format!("{}", d.display())
     }
 
     #[test]
@@ -118,31 +128,21 @@ mod tests {
 
     #[test]
     fn load_non_existent_file() -> Result<(), LoxError> {
-        let e = executive::new();
-        assert_error_contains!(e.run_file("test/not-a-file.file"), "No such file")
+        assert_run_file!("not-a-file.file", "No such file")
     }
 
     #[test]
     fn load_too_big_file() -> Result<(), LoxError> {
-        let e = executive::new();
-        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("resources/test/large.file");
-        assert_error_contains!(e.run_file(&dp!(d)), "is too large")
+        assert_run_file!("large.file", "is too large")
     }
 
     #[test]
     fn load_directory() -> Result<(), LoxError> {
-        let e = executive::new();
-        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("resources/test");
-        assert_error_contains!(e.run_file(&dp!(d)), "is not a file")
+        assert_run_file!(".", "is not a file")
     }
 
     #[test]
     fn load_file_with_bad_statement() -> Result<(), LoxError> {
-        let e = executive::new();
-        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("resources/test/test-bad.lox");
-        assert_error_contains!(e.run_file(&dp!(d)), "Bad input")
+        assert_run_file!("test-bad.lox", "Bad input")
     }
 }
