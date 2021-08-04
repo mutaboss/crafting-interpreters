@@ -90,6 +90,27 @@ mod tests {
     use crate::executive;
     use std::path::PathBuf;
 
+    macro_rules! assert_error_contains {
+        ( $er:expr, $ct:expr ) => {
+            match $er {
+                Ok(()) => Err(error::new("expected error")),
+                Err(err) => {
+                    if !format!("{}", err).contains($ct) {
+                        Err(err)
+                    } else {
+                        Ok(())
+                    }
+                }
+            }
+        };
+    }
+
+    macro_rules! dp {
+        ( $p:expr ) => {
+            format!("{}", $p.display())
+        };
+    }
+
     #[test]
     fn create_default_executor() {
         let _ = executive::new();
@@ -98,15 +119,7 @@ mod tests {
     #[test]
     fn load_non_existent_file() -> Result<(), LoxError> {
         let e = executive::new();
-        if let Err(x) = e.run_file("test/not-a-file.file") {
-            if format!("{}", x).contains("No such file") {
-                Ok(())
-            } else {
-                Err(x)
-            }
-        } else {
-            Err(error::new("expected exception"))
-        }
+        assert_error_contains!(e.run_file("test/not-a-file.file"), "No such file")
     }
 
     #[test]
@@ -114,15 +127,7 @@ mod tests {
         let e = executive::new();
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test/large.file");
-        if let Err(x) = e.run_file(&format!("{}", d.display())) {
-            if format!("{}", x).contains("is too large") {
-                Ok(())
-            } else {
-                Err(x)
-            }
-        } else {
-            Err(error::new("expected exception"))
-        }
+        assert_error_contains!(e.run_file(&dp!(d)), "is too large")
     }
 
     #[test]
@@ -130,15 +135,7 @@ mod tests {
         let e = executive::new();
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test");
-        if let Err(x) = e.run_file(&format!("{}", d.display())) {
-            if format!("{}", x).contains("is not a file") {
-                Ok(())
-            } else {
-                Err(x)
-            }
-        } else {
-            Err(error::new("expected error"))
-        }
+        assert_error_contains!(e.run_file(&dp!(d)), "is not a file")
     }
 
     #[test]
@@ -146,14 +143,6 @@ mod tests {
         let e = executive::new();
         let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         d.push("resources/test/test-bad.lox");
-        if let Err(x) = e.run_file(&format!("{}", d.display())) {
-            if format!("{}", x).contains("Bad input") {
-                Ok(())
-            } else {
-                Err(x)
-            }
-        } else {
-            Err(error::new("expected error"))
-        }
+        assert_error_contains!(e.run_file(&dp!(d)), "Bad input")
     }
 }
