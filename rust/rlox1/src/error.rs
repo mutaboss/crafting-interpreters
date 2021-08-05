@@ -5,9 +5,11 @@ pub struct LoxError {
     message: String,
 }
 
-pub fn new(message: &str) -> LoxError {
-    LoxError {
-        message: message.to_string(),
+impl LoxError {
+    pub fn new(message: &str) -> LoxError {
+        LoxError {
+            message: message.to_string(),
+        }
     }
 }
 

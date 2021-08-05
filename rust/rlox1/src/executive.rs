@@ -2,17 +2,16 @@ use std::fs::{self, File};
 use std::io::prelude::*;
 use std::io::{self, BufReader};
 
-use crate::error::{self, LoxError};
+use crate::error::{LoxError};
 
 const MAX_SOURCE_FILE_SIZE: u64 = 65535;
 
 pub struct Executor;
 
-pub fn new() -> Executor {
-    Executor {}
-}
-
 impl Executor {
+    pub fn new() -> Self {
+        Executor {}
+    }
     // display_prompt: Display a prompt and flush to stdout.
     fn display_prompt(&self, prompt: &str) {
         print!("{}", prompt);
@@ -24,9 +23,9 @@ impl Executor {
         // Confirm the file isn't too big before opening.
         let attr = fs::metadata(filename)?;
         if !attr.is_file() {
-            return Err(error::new(&format!("Path {} is not a file.", filename)));
+            return Err(LoxError::new(&format!("Path {} is not a file.", filename)));
         } else if attr.len() > MAX_SOURCE_FILE_SIZE {
-            return Err(error::new(&format!(
+            return Err(LoxError::new(&format!(
                 "File {} is too large ({} > {}).",
                 filename,
                 attr.len(),
@@ -48,7 +47,7 @@ impl Executor {
             println!("{}", buffer);
             Ok(())
         } else {
-            Err(error::new(&format!("Bad input: {}", buffer)))
+            Err(LoxError::new(&format!("Bad input: {}", buffer)))
         }
     }
 
@@ -86,14 +85,14 @@ impl Executor {
 
 #[cfg(test)]
 mod tests {
-    use crate::error::{self, LoxError};
-    use crate::executive;
+    use crate::error::{LoxError};
+    use crate::executive::Executor;
     use std::path::PathBuf;
 
     macro_rules! assert_error_contains {
         ( $er:expr, $ct:expr ) => {
             match $er {
-                Ok(()) => Err(error::new("expected error")),
+                Ok(()) => Err(LoxError::new("expected error")),
                 Err(err) => {
                     if !format!("{}", err).contains($ct) {
                         Err(err)
@@ -108,7 +107,7 @@ mod tests {
     macro_rules! assert_run_file {
         ( $fn:expr, $ct:expr ) => {
             {
-                let e = executive::new();
+                let e = Executor::new();
                 assert_error_contains!(e.run_file(&get_resource($fn)), $ct)
             }
         };
@@ -123,7 +122,7 @@ mod tests {
 
     #[test]
     fn create_default_executor() {
-        let _ = executive::new();
+        let _ = Executor::new();
     }
 
     #[test]
