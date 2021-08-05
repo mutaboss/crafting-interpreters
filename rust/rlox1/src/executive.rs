@@ -2,7 +2,7 @@ use std::fs::{self, File};
 use std::io::prelude::*;
 use std::io::{self, BufReader};
 
-use crate::error::{LoxError};
+use crate::error::LoxError;
 
 const MAX_SOURCE_FILE_SIZE: u64 = 65535;
 
@@ -85,7 +85,7 @@ impl Executor {
 
 #[cfg(test)]
 mod tests {
-    use crate::error::{LoxError};
+    use crate::error::LoxError;
     use crate::executive::Executor;
     use std::path::PathBuf;
 
@@ -105,12 +105,10 @@ mod tests {
     }
 
     macro_rules! assert_run_file {
-        ( $fn:expr, $ct:expr ) => {
-            {
-                let e = Executor::new();
-                assert_error_contains!(e.run_file(&get_resource($fn)), $ct)
-            }
-        };
+        ( $fn:expr, $ct:expr ) => {{
+            let e = Executor::new();
+            assert_error_contains!(e.run_file(&get_resource($fn)), $ct)
+        }};
     }
 
     fn get_resource(name: &str) -> String {
