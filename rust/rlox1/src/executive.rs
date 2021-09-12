@@ -19,7 +19,7 @@ impl Executor {
     }
 
     // read_file: Read lines from a file. Line termination is stripped.
-    fn read_file(&self, filename: &str) -> Result<Vec<String>, LoxError> {
+    fn read_file(&self, filename: &str) -> Result<String, LoxError> {
         // Confirm the file isn't too big before opening.
         let attr = fs::metadata(filename)?;
         if !attr.is_file() {
@@ -34,15 +34,16 @@ impl Executor {
         }
         let f = File::open(filename)?;
         let reader = BufReader::new(f);
-        let mut lines = Vec::new();
+        let mut buffer = String::new();
+        //let mut lines = Vec::new();
         for line in reader.lines() {
-            lines.push(line?);
+            buffer.push_str(&line?);
         }
-        Ok(lines)
+        Ok(buffer)
     }
 
-    // run_line: Run a single line of Lox code. This is where the magic happens.
-    fn run_line(&self, buffer: &str) -> Result<(), LoxError> {
+    // run: Runs some Lox code. This is where the magic happens.
+    fn run(&self, buffer: &str) -> Result<(), LoxError> {
         if buffer.starts_with("print") || buffer.starts_with("var") {
             println!("{}", buffer);
             Ok(())
@@ -55,9 +56,8 @@ impl Executor {
     // We iterate through each line of the file and attempt to execute it.
     // TODO: collect errors from execution, so we can see if multiple errors are encountered.
     pub fn run_file(&self, filename: &str) -> Result<(), LoxError> {
-        for line in self.read_file(filename)? {
-            self.run_line(&line)?;
-        }
+        let contents = &self.read_file(filename)?;
+        self.run(contents)?;
         Ok(())
     }
 
@@ -73,7 +73,7 @@ impl Executor {
                 let line = line.trim();
                 // Skip empty lines. Display and continue on error.
                 if !line.is_empty() {
-                    if let Err(err) = self.run_line(line) {
+                    if let Err(err) = self.run(line) {
                         eprintln!("{}", err);
                     }
                 }
