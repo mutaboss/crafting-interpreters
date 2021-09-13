@@ -2,8 +2,10 @@ use clap::{App, Arg};
 
 // TODO: Add documentation.
 
+#[macro_use]
 mod error;
 mod executive;
+mod scanner;
 
 use executive::Executor;
 

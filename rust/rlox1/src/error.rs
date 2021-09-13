@@ -28,3 +28,13 @@ impl From<std::io::Error> for LoxError {
         }
     }
 }
+
+#[macro_export]
+macro_rules! loxerr {
+    ( $e:expr ) => {
+        return Err(LoxError::new(&format!("{}", $e)))
+    };
+    ( $fmt:expr, $( $params:expr ),+ ) => {
+        return Err(LoxError::new(&format!($fmt, $( $params ),+ )))
+    };
+}

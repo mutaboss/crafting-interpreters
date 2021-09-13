@@ -3,6 +3,7 @@ use std::io::prelude::*;
 use std::io::{self, BufReader};
 
 use crate::error::LoxError;
+use crate::scanner::*;
 
 const MAX_SOURCE_FILE_SIZE: u64 = 65535;
 
@@ -43,12 +44,17 @@ impl Executor {
     }
 
     // run: Runs some Lox code. This is where the magic happens.
-    fn run(&self, buffer: &str) -> Result<(), LoxError> {
-        if buffer.starts_with("print") || buffer.starts_with("var") {
-            println!("{}", buffer);
-            Ok(())
+    fn run(&self, buffer: String) -> Result<(), LoxError> {
+        let mut scanner_ = Scanner::new(&buffer);
+        let tokens = scanner_.scan_tokens()?;
+        eprintln!("{} tokens found.", tokens.len());
+        for token in tokens {
+            eprintln!("Token: {}", token);
+        }
+        if scanner_.errors_found() {
+            loxerr!("Errors found while parsing {}.", buffer)
         } else {
-            Err(LoxError::new(&format!("Bad input: {}", buffer)))
+            Ok(())
         }
     }
 
@@ -56,9 +62,8 @@ impl Executor {
     // We iterate through each line of the file and attempt to execute it.
     // TODO: collect errors from execution, so we can see if multiple errors are encountered.
     pub fn run_file(&self, filename: &str) -> Result<(), LoxError> {
-        let contents = &self.read_file(filename)?;
-        self.run(contents)?;
-        Ok(())
+        let contents = self.read_file(filename)?;
+        self.run(contents)
     }
 
     // run_repl: Read a line, execute it, repeat.
@@ -73,13 +78,13 @@ impl Executor {
                 let line = line.trim();
                 // Skip empty lines. Display and continue on error.
                 if !line.is_empty() {
-                    if let Err(err) = self.run(line) {
+                    if let Err(err) = self.run(line.to_string()) {
                         eprintln!("{}", err);
                     }
                 }
             }
         }
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -107,7 +112,9 @@ mod tests {
     macro_rules! assert_run_file {
         ( $fn:expr, $ct:expr ) => {{
             let e = Executor::new();
-            assert_error_contains!(e.run_file(&get_resource($fn)), $ct)
+            let result = e.run_file(&get_resource($fn));
+            eprintln!("assert_run_file: ERROR: {:?} {}", result, $ct);
+            assert_error_contains!(result, $ct)
         }};
     }
 
@@ -138,8 +145,8 @@ mod tests {
         assert_run_file!(".", "is not a file")
     }
 
-    #[test]
-    fn load_file_with_bad_statement() -> Result<(), LoxError> {
-        assert_run_file!("test-bad.lox", "Bad input")
-    }
+    // #[test]
+    // fn load_file_with_bad_statement() -> Result<(), LoxError> {
+    //     assert_run_file!("test-bad.lox", "Invalid character")
+    // }
 }
