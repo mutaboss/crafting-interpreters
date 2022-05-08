@@ -217,7 +217,7 @@ scanner_test!(FROM: scan_number_float, scan_number, "1234.5" => 1234.5);
 scanner_test!(FAIL: scan_number_two_dots, scan_number, "1234.5.6");
 scanner_test!(FROM: scan_number_float_alpha, scan_number, "1234.5ab" => 1234.5);
 
-#[derive(Clone,Debug)]
+#[derive(Clone,Debug,PartialEq)]
 pub struct Token {
     pub typ: TokenType,
     pub line: usize,
@@ -253,10 +253,6 @@ impl Scanner {
             has_error: false,
             tokens: Vec::new(),
         }
-    }
-
-    pub fn errors_found(&self) -> bool {
-        self.has_error
     }
 
     pub fn scan_tokens(&mut self) -> Result<&Vec<Token>, LoxError> {
@@ -362,11 +358,11 @@ impl Scanner {
                             },
                         }
                     } else if c.is_numeric() {
-                        match scan_number(&self.text, self.current_index) {
+                        match scan_number(&self.text, self.current_index-1) {
                             Err(msg) => loxerr!(msg),
                             Ok(toktype) => {
                                 if let TokenType::Number(num) = toktype {
-                                    self.current_index += format!("{}",num).len();
+                                    self.current_index += format!("{}",num).len() - 1;
                                     Ok(Token::new(toktype, line))
                                 } else {
                                     loxerr!("Something bad happened")
@@ -435,12 +431,14 @@ macro_rules! scanner_test_tokens {
             let src: &str = $src;
             let mut typs = Vec::new();
             $(
+                eprintln!("E TokenType:: {:?}", $toktyp);
                 typs.push($toktyp);
             )+
             let mut scanner = Scanner::new(&String::from(src));
             let tokens = scanner.scan_tokens()?;
-            assert_eq!(tokens.len(), typs.len() );
+            assert_eq!(typs.len(), tokens.len() );
             for i in 0..tokens.len() {
+                eprintln!("O TokenType:: {:?}", tokens[i].typ);
                 assert_eq!(typs[i], tokens[i].typ);
             }
             Ok(())
@@ -488,9 +486,10 @@ scanner_test_tokens!(
 );
 
 scanner_test_tokens!(
-    scan_abc,
-    "abc;",
+    scan_abc_and_12,
+    "abc 12;",
     TokenType::Identifier("abc".to_string()),
+    TokenType::Number(12.0),
     TokenType::Semicolon,
     TokenType::Eof
 );
@@ -504,3 +503,11 @@ scanner_test_tokens!(
     TokenType::Semicolon,
     TokenType::Eof
 );
+
+scanner_test_tokens!(
+    test_single_number,
+    "12",
+    TokenType::Number(12.0),
+    TokenType::Eof
+);
+

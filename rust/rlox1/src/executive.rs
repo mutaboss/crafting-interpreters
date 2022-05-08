@@ -4,6 +4,7 @@ use std::io::{self, BufReader};
 
 use crate::error::LoxError;
 use crate::scanner::*;
+use crate::parser::*;
 
 const MAX_SOURCE_FILE_SIZE: u64 = 65535;
 
@@ -45,17 +46,15 @@ impl Executor {
 
     // run: Runs some Lox code. This is where the magic happens.
     fn run(&self, buffer: String) -> Result<(), LoxError> {
-        let mut scanner_ = Scanner::new(&buffer);
-        let tokens = scanner_.scan_tokens()?;
+        let mut scanner = Scanner::new(&buffer);
+        let tokens = scanner.scan_tokens()?;
         eprintln!("{} tokens found.", tokens.len());
         for token in tokens {
             eprintln!("Token: {}", token);
         }
-        if scanner_.errors_found() {
-            loxerr!("Errors found while parsing {}.", buffer)
-        } else {
-            Ok(())
-        }
+        let mut parser = LoxParser::new(&tokens.clone());
+        let _tree = parser.parse()?;
+        Ok(())
     }
 
     // run_file: Run the supplied file based on filename.
