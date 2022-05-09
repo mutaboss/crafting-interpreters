@@ -1,7 +1,9 @@
 use crate::error::LoxError;
 use crate::scanner::*;
 
-#[derive(Debug,PartialEq)]
+use std::fmt;
+
+#[derive(Debug, PartialEq)]
 pub enum Expr {
     Binary(Box<Expr>, Token, Box<Expr>),
     Unary(Token, Box<Expr>),
@@ -13,16 +15,40 @@ pub enum Expr {
     Grouping(Box<Expr>),
 }
 
-pub struct LoxParser {
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Expr::Binary(left_expr, operator, right_expr) => {
+                write!(f, "{} {} {}", left_expr, operator, right_expr)
+            }
+            Expr::Unary(token, right_expr) => {
+                write!(f, "{} {}", token, right_expr)
+            }
+            Expr::False => write!(f, "{}", "false"),
+            Expr::True => write!(f, "{}", "true"),
+            Expr::Nil => write!(f, "{}", "nil"),
+            Expr::Literal(token) => {
+                write!(f, "{}", token)
+            }
+            Expr::Identifier(token) => {
+                write!(f, "{}", token)
+            }
+            Expr::Grouping(tree) => {
+                write!(f, "( {} )", tree)
+            }
+        }
+    }
+}
+
+pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
 }
 
-impl LoxParser {
-
+impl Parser {
     // Constructor
     pub fn new(toks: &Vec<Token>) -> Self {
-        LoxParser {
+        Parser {
             tokens: toks.clone(),
             current: 0,
         }
@@ -36,7 +62,7 @@ impl LoxParser {
     fn expression(&mut self) -> Result<Expr, LoxError> {
         self.equality()
     }
-    
+
     fn equality(&mut self) -> Result<Expr, LoxError> {
         let mut left = self.comparison()?;
         while self.match_token(&vec![TokenType::BangEqual, TokenType::EqualEqual]) {
@@ -46,11 +72,15 @@ impl LoxParser {
         }
         Ok(left)
     }
-    
+
     fn comparison(&mut self) -> Result<Expr, LoxError> {
         let mut left = self.term()?;
-        while self.match_token(&vec![TokenType::Greater, TokenType::GreaterEqual,
-                                      TokenType::Less, TokenType::LessEqual]) {
+        while self.match_token(&vec![
+            TokenType::Greater,
+            TokenType::GreaterEqual,
+            TokenType::Less,
+            TokenType::LessEqual,
+        ]) {
             let operator = self.previous();
             let right = self.term()?;
             left = Expr::Binary(Box::new(left), operator, Box::new(right));
@@ -99,13 +129,13 @@ impl LoxParser {
             TokenType::LeftParen => {
                 let expr = self.expression()?;
                 Ok(Expr::Grouping(Box::new(expr)))
-            },
-            _ => loxerr!("Invalid token!")
+            }
+            _ => loxerr!("Invalid token!"),
         }
     }
 
     // Supporting Methods
-    
+
     fn match_token(&mut self, expected: &Vec<TokenType>) -> bool {
         for exp in expected.iter() {
             if self.check(exp) {
@@ -115,33 +145,32 @@ impl LoxParser {
         }
         false
     }
-    
+
     fn check(&self, expected: &TokenType) -> bool {
         if self.is_at_end() {
             return false;
         }
         &self.peek().typ == expected
     }
-    
+
     fn advance(&mut self) -> Token {
-        if ! self.is_at_end() {
+        if !self.is_at_end() {
             self.current += 1;
         }
         self.previous()
     }
-    
+
     fn is_at_end(&self) -> bool {
         self.peek().typ == TokenType::Eof
     }
-    
+
     fn peek(&self) -> Token {
         self.tokens[self.current].clone()
     }
-    
+
     fn previous(&self) -> Token {
-        self.tokens[self.current-1].clone()
+        self.tokens[self.current - 1].clone()
     }
-    
 }
 
 macro_rules! parser_test {
@@ -152,14 +181,15 @@ macro_rules! parser_test {
             let src: &str = $src;
             let exp = $should_be;
             let mut scanner = Scanner::new(src);
-            let mut parser = LoxParser::new(&scanner.scan_tokens().unwrap().clone());
+            let mut parser = Parser::new(&scanner.scan_tokens().unwrap().clone());
             let got = parser.parse();
             assert_eq!(got, exp);
         }
     };
 }
 
-parser_test!(test_parse_12, "12" => Ok(Expr::Literal(Token::new(TokenType::Number(12.0), 1))));
+parser_test!(test_parse_12,
+             "12" => Ok(Expr::Literal(Token::new(TokenType::Number(12.0), 1))));
 parser_test!(test_addition, "1 + 2 == 3;" =>
              Ok(Expr::Binary(
                  Box::new(Expr::Binary(

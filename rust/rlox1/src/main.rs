@@ -5,8 +5,9 @@ use clap::{App, Arg};
 #[macro_use]
 mod error;
 mod executive;
-mod scanner;
+mod interpreter;
 mod parser;
+mod scanner;
 
 use executive::Executor;
 

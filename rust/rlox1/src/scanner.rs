@@ -70,6 +70,60 @@ impl From<f64> for TokenType {
     }
 }
 
+//        write!(f, "{} {}", self.typ, self.line)
+impl fmt::Display for TokenType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            // literals
+            TokenType::Identifier(ident) => write!(f, "{}", ident),
+            TokenType::QuotedString(strng) => write!(f, "\"{}\"", strng),
+            TokenType::Number(num) => write!(f, "{}", num),
+
+            // Single-character tokens
+            TokenType::LeftParen => write!(f, "{}", "("),
+            TokenType::RightParen => write!(f, "{}", ")"),
+            TokenType::LeftBrace => write!(f, "{}", "{"),
+            TokenType::RightBrace => write!(f, "{}", "}"),
+            TokenType::Comma => write!(f, "{}", ","),
+            TokenType::Dot => write!(f, "{}", "."),
+            TokenType::Minus => write!(f, "{}", "-"),
+            TokenType::Plus => write!(f, "{}", "+"),
+            TokenType::Semicolon => write!(f, "{}", ";"),
+            TokenType::Slash => write!(f, "{}", "/"),
+            TokenType::Star => write!(f, "{}", "*"),
+
+            // One Or Two Character Tokens
+            TokenType::Bang => write!(f, "{}", "!"),
+            TokenType::BangEqual => write!(f, "{}", "!="),
+            TokenType::Equal => write!(f, "{}", "="),
+            TokenType::EqualEqual => write!(f, "{}", "=="),
+            TokenType::Greater => write!(f, "{}", ">"),
+            TokenType::GreaterEqual => write!(f, "{}", ">="),
+            TokenType::Less => write!(f, "{}", "<"),
+            TokenType::LessEqual => write!(f, "{}", "<="),
+
+            // keywords
+            TokenType::And => write!(f, "{}", "and"),
+            TokenType::Class => write!(f, "{}", "class"),
+            TokenType::Else => write!(f, "{}", "else"),
+            TokenType::False => write!(f, "{}", "false"),
+            TokenType::Fun => write!(f, "{}", "fun"),
+            TokenType::For => write!(f, "{}", "for"),
+            TokenType::If => write!(f, "{}", "if"),
+            TokenType::Nil => write!(f, "{}", "nil"),
+            TokenType::Or => write!(f, "{}", "or"),
+            TokenType::Print => write!(f, "{}", "print"),
+            TokenType::Return => write!(f, "{}", "return"),
+            TokenType::Super => write!(f, "{}", "super"),
+            TokenType::This => write!(f, "{}", "this"),
+            TokenType::True => write!(f, "{}", "true"),
+            TokenType::Var => write!(f, "{}", "var"),
+            TokenType::While => write!(f, "{}", "while"),
+
+            TokenType::Eof => write!(f, "{}", "EOF"),
+        }
+    }
+}
 fn take_while<F>(
     data: &[char],
     start_index: usize,
@@ -87,10 +141,10 @@ where
     Ok(buf.to_string())
 }
 
-fn scan_number(data: &[char], start_index: usize) -> Result<TokenType, LoxError> {
-    if let Ok(num) = take_while(data, start_index, |ch| ch == '.' || ch.is_digit(10)) {
-        match num.parse::<f64>() {
-            Ok(num) => Ok(TokenType::Number(num)),
+fn scan_number(data: &[char], start_index: usize) -> Result<(TokenType, usize), LoxError> {
+    if let Ok(numstr) = take_while(data, start_index, |ch| ch == '.' || ch.is_digit(10)) {
+        match numstr.parse::<f64>() {
+            Ok(num) => Ok((TokenType::Number(num), numstr.len())),
             Err(msg) => loxerr!(msg),
         }
     } else {
@@ -132,7 +186,9 @@ fn scan_quoted_string(data: &[char], start_index: usize) -> Result<(TokenType, u
     let mut prev_ch = '1';
     let tok = take_while(data, start_index, |ch| {
         let result;
-        if ch == '\n' { line_count += 1 };
+        if ch == '\n' {
+            line_count += 1
+        };
         if ch != '"' {
             result = true;
         } else if prev_ch == '\\' {
@@ -146,9 +202,13 @@ fn scan_quoted_string(data: &[char], start_index: usize) -> Result<(TokenType, u
     if let Ok(qstr) = tok {
         if start_index + qstr.len() >= data.len() || '\"' != data[start_index + qstr.len()] {
             // We didn't see a closing double-quote.
-            loxerr!("Missing end-quote: idx={}, len={}.", start_index + qstr.len(), data.len())
+            loxerr!(
+                "Missing end-quote: idx={}, len={}.",
+                start_index + qstr.len(),
+                data.len()
+            )
         }
-        Ok((TokenType::QuotedString(qstr),line_count))
+        Ok((TokenType::QuotedString(qstr), line_count))
     } else {
         loxerr!("Expected quoted string, did not find one: \"{:?}\".", tok)
     }
@@ -163,6 +223,18 @@ macro_rules! scanner_test {
             let func = $func;
             let got = func(&src.chars().collect::<Vec<char>>(), 0);
             assert!(got.is_err(), "{:?} should be an error", got);
+        }
+    };
+    (FROM: $name:ident, $func:ident, $src:expr => ($should_be:expr, $wid:expr)) => {
+        #[cfg(test)]
+        #[test]
+        fn $name() {
+            let src: &str = $src;
+            let exp_str = $should_be;
+            let should_be = TokenType::from(exp_str);
+            let func = $func;
+            let got = func(&src.chars().collect::<Vec<char>>(), 0).unwrap();
+            assert_eq!(got, (should_be, $wid), "Input was {:?}", src);
         }
     };
     (FROM: $name:ident, $func:ident, $src:expr => $should_be:expr) => {
@@ -212,12 +284,12 @@ scanner_test!(scan_multiline_string,
               "a\nb\nc\"" => (TokenType::QuotedString(String::from("a\nb\nc")), 2)
 );
 
-scanner_test!(FROM: scan_number_integer, scan_number, "1234" => 1234.0);
-scanner_test!(FROM: scan_number_float, scan_number, "1234.5" => 1234.5);
+scanner_test!(FROM: scan_number_integer, scan_number, "1234" => (1234.0, 4));
+scanner_test!(FROM: scan_number_float, scan_number, "1234.5" => (1234.5, 6));
 scanner_test!(FAIL: scan_number_two_dots, scan_number, "1234.5.6");
-scanner_test!(FROM: scan_number_float_alpha, scan_number, "1234.5ab" => 1234.5);
+scanner_test!(FROM: scan_number_float_alpha, scan_number, "1234.5ab" => (1234.5, 6));
 
-#[derive(Clone,Debug,PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Token {
     pub typ: TokenType,
     pub line: usize,
@@ -231,7 +303,7 @@ impl Token {
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?} {}", self.typ, self.line)
+        write!(f, "{}", self.typ)
     }
 }
 
@@ -335,39 +407,42 @@ impl Scanner {
                 '"' => match scan_quoted_string(&self.text, self.current_index) {
                     Err(msg) => loxerr!(msg),
                     Ok(toktype) => {
-                        if let (TokenType::QuotedString(the_string),line_count) = toktype {
+                        if let (TokenType::QuotedString(the_string), line_count) = toktype {
                             self.current_index += the_string.len() + 1;
                             self.line += line_count;
                             Ok(Token::new(TokenType::QuotedString(the_string), line))
                         } else {
                             loxerr!("Something bad happened: {:?}.", toktype)
                         }
-                    },
+                    }
                 },
                 _ => {
                     if c.is_alphabetic() || c == '_' {
-                        match scan_identifier(&self.text, self.current_index-1) {
+                        match scan_identifier(&self.text, self.current_index - 1) {
                             Err(msg) => loxerr!(msg),
                             Ok(toktype) => {
-                                if let TokenType::Identifier(the_string) = toktype {
-                                    self.current_index += the_string.len() - 1;
-                                    Ok(Token::new(TokenType::Identifier(the_string), line))
-                                } else {
-                                    loxerr!("Something bad happened getting an identifier: {:?}", toktype)
-                                }
-                            },
+                                self.current_index += format!("{}", toktype).len() - 1;
+                                Ok(Token::new(toktype, line))
+                                // if let TokenType::Identifier(the_string) = toktype {
+                                //     self.current_index += the_string.len() - 1;
+                                //     Ok(Token::new(TokenType::Identifier(the_string), line))
+                                // } else {
+                                //     loxerr!("Something bad happened getting an identifier: {:?}", toktype)
+                                // }
+                            }
                         }
                     } else if c.is_numeric() {
-                        match scan_number(&self.text, self.current_index-1) {
+                        match scan_number(&self.text, self.current_index - 1) {
                             Err(msg) => loxerr!(msg),
-                            Ok(toktype) => {
-                                if let TokenType::Number(num) = toktype {
-                                    self.current_index += format!("{}",num).len() - 1;
-                                    Ok(Token::new(toktype, line))
-                                } else {
-                                    loxerr!("Something bad happened")
-                                }
-                            },
+                            Ok((toktype, wid)) => {
+                                eprintln!("TOK {} at {}", toktype, wid);
+                                //if let TokenType::Number(num) = toktype {
+                                self.current_index += wid - 1;
+                                Ok(Token::new(toktype, line))
+                                //} else {
+                                //    loxerr!("Something bad happened")
+                                //}
+                            }
                         }
                     } else {
                         self.has_error = true;
@@ -510,4 +585,3 @@ scanner_test_tokens!(
     TokenType::Number(12.0),
     TokenType::Eof
 );
-

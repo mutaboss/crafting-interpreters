@@ -3,8 +3,9 @@ use std::io::prelude::*;
 use std::io::{self, BufReader};
 
 use crate::error::LoxError;
-use crate::scanner::*;
+use crate::interpreter::*;
 use crate::parser::*;
+use crate::scanner::*;
 
 const MAX_SOURCE_FILE_SIZE: u64 = 65535;
 
@@ -50,10 +51,13 @@ impl Executor {
         let tokens = scanner.scan_tokens()?;
         eprintln!("{} tokens found.", tokens.len());
         for token in tokens {
-            eprintln!("Token: {}", token);
+            eprintln!("Token: {:?}", token);
         }
-        let mut parser = LoxParser::new(&tokens.clone());
-        let _tree = parser.parse()?;
+        let mut parser = Parser::new(&tokens.clone());
+        let tree = parser.parse()?;
+        println!("\n\n===> {}", tree);
+        let interp = Interpreter::new();
+        println!("\n\n{}", interp.interpret(&tree)?);
         Ok(())
     }
 
