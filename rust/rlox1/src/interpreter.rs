@@ -32,6 +32,22 @@ macro_rules! math_op {
     }};
 }
 
+macro_rules! compare_op {
+    // FIXME: Add support for Strings
+    ($left:expr, $right:expr, $exec:block) => {{
+        if let Ok(nl) = get_number($left) {
+            if let Ok(nr) = get_number($right) {
+                if $exec(nl, nr) {
+                    return Ok(Expr::True);
+                } else {
+                    return Ok(Expr::False);
+                }
+            }
+        }
+        loxerr!("Invalid inputs to comparison.")
+    }};
+}
+
 pub struct Interpreter {}
 
 macro_rules! tt_to_expr {
@@ -96,6 +112,12 @@ impl Interpreter {
             TokenType::Star => math_op!(&left, &right, { |x, y| x * y }),
             TokenType::Minus => math_op!(&left, &right, { |x, y| x - y }),
             TokenType::Slash => math_op!(&left, &right, { |x, y| x / y }),
+            TokenType::Greater => compare_op!(&left, &right, { |x, y| x > y }),
+            TokenType::GreaterEqual => compare_op!(&left, &right, { |x, y| x >= y }),
+            TokenType::Less => compare_op!(&left, &right, { |x, y| x < y }),
+            TokenType::LessEqual => compare_op!(&left, &right, { |x, y| x <= y }),
+            TokenType::EqualEqual => compare_op!(&left, &right, { |x, y| x == y }),
+            TokenType::BangEqual => compare_op!(&left, &right, { |x, y| x != y }),
             _ => {
                 loxerr!("Token not recognized")
             }
@@ -121,17 +143,22 @@ impl Interpreter {
     }
 }
 
+#[cfg(test)]
+fn interpret_input(input: &str) -> Result<Expr, LoxError> {
+    let mut scanner = Scanner::new(input);
+    let tokens = scanner.scan_tokens()?;
+    let mut parser = Parser::new(&tokens.clone());
+    let tree = parser.parse()?;
+    let interp = Interpreter::new();
+    interp.interpret(&tree)
+}
+
 macro_rules! test_interpreter {
     ( UNARY: $ident:ident, $strng:expr, $exp:expr ) => {
         #[cfg(test)]
         #[test]
         fn $ident() -> Result<(), LoxError> {
-            let mut scanner = Scanner::new($strng);
-            let tokens = scanner.scan_tokens()?;
-            let mut parser = Parser::new(&tokens.clone());
-            let tree = parser.parse()?;
-            let interp = Interpreter::new();
-            let result = interp.interpret(&tree);
+            let result = interpret_input($strng);
             if let Ok(res) = result {
                 assert_eq!($exp, res);
                 Ok(())
@@ -144,18 +171,13 @@ macro_rules! test_interpreter {
         #[cfg(test)]
         #[test]
         fn $ident() -> Result<(), LoxError> {
-            let mut scanner = Scanner::new($strng);
-            let tokens = scanner.scan_tokens()?;
-            let mut parser = Parser::new(&tokens.clone());
-            let tree = parser.parse()?;
-            let interp = Interpreter::new();
-            let result = interp.interpret(&tree);
+            let result = interpret_input($strng);
             let exp = Expr::Literal(Token::new(TokenType::Number($exp as f64), 0));
             if let Ok(res) = result {
                 assert_eq!(exp, res);
                 Ok(())
             } else {
-                loxerr!("Bad use of unary operator: {:?}", result);
+                loxerr!("Bad use of binary math operator: {:?}", result);
             }
         }
     };
@@ -163,18 +185,30 @@ macro_rules! test_interpreter {
         #[cfg(test)]
         #[test]
         fn $ident() -> Result<(), LoxError> {
-            let mut scanner = Scanner::new($strng);
-            let tokens = scanner.scan_tokens()?;
-            let mut parser = Parser::new(&tokens.clone());
-            let tree = parser.parse()?;
-            let interp = Interpreter::new();
-            let result = interp.interpret(&tree);
+            let result = interpret_input($strng);
             let exp = Expr::Literal(Token::new(TokenType::QuotedString($exp), 0));
             if let Ok(res) = result {
                 assert_eq!(exp, res);
                 Ok(())
             } else {
-                loxerr!("Bad use of unary operator: {:?}", result);
+                loxerr!("Bad use of binary string operator: {:?}", result);
+            }
+        }
+    };
+    ( BINARY_COMPARE: $ident:ident, $strng:expr, $exp:expr ) => {
+        #[cfg(test)]
+        #[test]
+        fn $ident() -> Result<(), LoxError> {
+            let result = interpret_input($strng);
+            let exp = match $exp {
+                true => Expr::True,
+                false => Expr::False,
+            };
+            if let Ok(res) = result {
+                assert_eq!(exp, res);
+                Ok(())
+            } else {
+                loxerr!("Bad use of binary comparison operator: {:?}", result);
             }
         }
     };
@@ -200,4 +234,22 @@ test_interpreter!(BINARY_MATH: test_binary_multiplication, "15 * 4", 60);
 test_interpreter!(BINARY_MATH: test_binary_division, "15 / 3", 5);
 test_interpreter!(BINARY_MATH: test_grouping, "(15 / 3) * 4", 20);
 test_interpreter!(BINARY_MATH: test_grouping_spaces, "( 15 / 3 ) * 4", 20);
-test_interpreter!(BINARY_STRING: test_concat, "\"abc\" + \"def\"", "abcdef".to_string());
+test_interpreter!(
+    BINARY_STRING: test_concat,
+    "\"abc\" + \"def\"",
+    "abcdef".to_string()
+);
+test_interpreter!(BINARY_COMPARE: test_greater_than, "5 + 12 > 15", true);
+test_interpreter!(BINARY_COMPARE: test_greater_than_2, "5 +5 > 15", false);
+test_interpreter!(BINARY_COMPARE: test_less_than, "5 + 12 < 20", true);
+test_interpreter!(BINARY_COMPARE: test_less_than_2, "5 + 5 < 3", false);
+test_interpreter!(BINARY_COMPARE: test_ge, "15 >= 15", true);
+test_interpreter!(BINARY_COMPARE: test_ge_2, "15 >= 12", true);
+test_interpreter!(BINARY_COMPARE: test_ge_3, "15 >= 20", false);
+test_interpreter!(BINARY_COMPARE: test_le, "15 <= 15", true);
+test_interpreter!(BINARY_COMPARE: test_le_2, "15 <= 16", true);
+test_interpreter!(BINARY_COMPARE: test_le_3, "15 <= 5", false);
+test_interpreter!(BINARY_COMPARE: test_eq_success, "5 == 5", true);
+test_interpreter!(BINARY_COMPARE: test_eq_failure, "5 == 6", false);
+test_interpreter!(BINARY_COMPARE: test_ne_success, "5 != 6", true);
+test_interpreter!(BINARY_COMPARE: test_ne_failure, "5 != 5", false);
