@@ -12,6 +12,15 @@ fn get_number(n: &Expr) -> Result<f64, LoxError> {
     loxerr!("A number was expected but not found.")
 }
 
+fn get_string(e: &Expr) -> Result<String, LoxError> {
+    if let Expr::Literal(e) = e {
+        if let TokenType::QuotedString(qs) = &e.typ {
+            return Ok(qs.to_string());
+        }
+    }
+    loxerr!("A String was expected but not found.")
+}
+
 macro_rules! math_op {
     ($left:expr, $right:expr, $exec:block) => {{
         let nl = get_number($left)?;
@@ -58,10 +67,10 @@ impl Interpreter {
                     loxerr!("Unrecognized literal: {}", tok)
                 }
             }
+            Expr::Grouping(expr) => self.interpret(expr),
             Expr::Identifier(_tok) => {
                 loxerr!("Identifier not implemented")
             }
-            Expr::Grouping(expr) => self.interpret(expr),
         }
     }
 
@@ -69,7 +78,21 @@ impl Interpreter {
         let left = self.interpret(&left)?;
         let right = self.interpret(&right)?;
         match oper.typ {
-            TokenType::Plus => math_op!(&left, &right, { |x, y| x + y }),
+            TokenType::Plus => {
+                if get_number(&left).is_ok() && get_number(&right).is_ok() {
+                    math_op!(&left, &right, { |x, y| x + y })
+                } else if get_string(&left).is_ok() && get_string(&right).is_ok() {
+                    let mut s1 = get_string(&left).unwrap().clone();
+                    let s2 = get_string(&right).unwrap();
+                    s1.push_str(&s2);
+                    Ok(Expr::Literal(Token::new(
+                        TokenType::QuotedString(s1.to_string()),
+                        0,
+                    )))
+                } else {
+                    loxerr!("Invalid arguments to '+'.")
+                }
+            }
             TokenType::Star => math_op!(&left, &right, { |x, y| x * y }),
             TokenType::Minus => math_op!(&left, &right, { |x, y| x - y }),
             TokenType::Slash => math_op!(&left, &right, { |x, y| x / y }),
@@ -117,6 +140,44 @@ macro_rules! test_interpreter {
             }
         }
     };
+    ( BINARY_MATH: $ident:ident, $strng:expr, $exp:expr ) => {
+        #[cfg(test)]
+        #[test]
+        fn $ident() -> Result<(), LoxError> {
+            let mut scanner = Scanner::new($strng);
+            let tokens = scanner.scan_tokens()?;
+            let mut parser = Parser::new(&tokens.clone());
+            let tree = parser.parse()?;
+            let interp = Interpreter::new();
+            let result = interp.interpret(&tree);
+            let exp = Expr::Literal(Token::new(TokenType::Number($exp as f64), 0));
+            if let Ok(res) = result {
+                assert_eq!(exp, res);
+                Ok(())
+            } else {
+                loxerr!("Bad use of unary operator: {:?}", result);
+            }
+        }
+    };
+    ( BINARY_STRING: $ident:ident, $strng:expr, $exp:expr ) => {
+        #[cfg(test)]
+        #[test]
+        fn $ident() -> Result<(), LoxError> {
+            let mut scanner = Scanner::new($strng);
+            let tokens = scanner.scan_tokens()?;
+            let mut parser = Parser::new(&tokens.clone());
+            let tree = parser.parse()?;
+            let interp = Interpreter::new();
+            let result = interp.interpret(&tree);
+            let exp = Expr::Literal(Token::new(TokenType::QuotedString($exp), 0));
+            if let Ok(res) = result {
+                assert_eq!(exp, res);
+                Ok(())
+            } else {
+                loxerr!("Bad use of unary operator: {:?}", result);
+            }
+        }
+    };
 }
 
 test_interpreter!(UNARY: test_unary_false, "!false", Expr::True);
@@ -133,4 +194,10 @@ test_interpreter!(
     tt_to_expr!(Literal, Number, 5.0)
 );
 
-// FIXME: Test more of the interpreter.
+test_interpreter!(BINARY_MATH: test_binary_addition, "3 + 2", 5.0);
+test_interpreter!(BINARY_MATH: test_binary_subtraction, "15 - 3", 12);
+test_interpreter!(BINARY_MATH: test_binary_multiplication, "15 * 4", 60);
+test_interpreter!(BINARY_MATH: test_binary_division, "15 / 3", 5);
+test_interpreter!(BINARY_MATH: test_grouping, "(15 / 3) * 4", 20);
+test_interpreter!(BINARY_MATH: test_grouping_spaces, "( 15 / 3 ) * 4", 20);
+test_interpreter!(BINARY_STRING: test_concat, "\"abc\" + \"def\"", "abcdef".to_string());

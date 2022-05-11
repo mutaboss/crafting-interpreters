@@ -128,7 +128,12 @@ impl Parser {
             TokenType::Identifier(_) => Ok(Expr::Identifier(tok)),
             TokenType::LeftParen => {
                 let expr = self.expression()?;
-                Ok(Expr::Grouping(Box::new(expr)))
+                eprintln!("{:?}", expr);
+                if self.match_token(&vec![TokenType::RightParen]) {
+                    Ok(Expr::Grouping(Box::new(expr)))
+                } else {
+                    loxerr!("Missing end quote.");
+                }
             }
             _ => loxerr!("Invalid token!"),
         }
