@@ -1,7 +1,6 @@
 use crate::error::LoxError;
 use crate::parser::Expr;
-use crate::parser::*;
-use crate::scanner::*;
+use crate::scanner::{Token,TokenType};
 
 fn get_number(n: &Expr) -> Result<f64, LoxError> {
     if let Expr::Literal(n) = n {
